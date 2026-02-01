@@ -2,17 +2,16 @@ name: C++ CI Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 env:
   BUILD_TYPE: Release
+  ECU_NAME: calculator
 
 jobs:
-  build-test-analyze:
+  build-test-package:
     runs-on: ubuntu-latest
 
     steps:
@@ -41,10 +40,26 @@ jobs:
       run: |
         cd build
         ctest --output-on-failure
-        
-             
-            
-          
 
+    # 6️⃣ Install build outputs (IMPORTANT)
+    - name: Install build outputs
+      run: |
+        cmake --install build --prefix dist
 
+    # 7️⃣ Generate ECU manifest
+    - name: Generate ECU manifest
+      run: |
+        cat <<EOF > dist/ecu-manifest.yaml
+        ecu_name: ${{ env.ECU_NAME }}
+        type: static-library
+        artifact_path: lib/lib${{ env.ECU_NAME }}.a
+        commit: ${GITHUB_SHA}
+        build_type: ${{ env.BUILD_TYPE }}
+        EOF
 
+    # 8️⃣ Upload ECU artifact + manifest
+    - name: Upload ECU artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ecu-${{ env.ECU_NAME }}-artifact
+        path: dist/
